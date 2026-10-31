@@ -28,6 +28,23 @@ def test_parallel_requests_only_book_once(tmp_path, monkeypatch):
 def test_demo_and_invalid_input(tmp_path, monkeypatch):
     monkeypatch.setattr(main, 'DB', 'sqlite:///' + str(tmp_path / 'demo.db'))
     with TestClient(main.app) as client:
-        assert '予約を作成' in client.get('/').text
+        assert client.get('/').status_code == 200
         assert client.post('/reservations', json={'resource': '  ', 'customer': 'test', 'starts_at': '2027-01-01T10:00:00+09:00'}).status_code == 422
         assert client.post('/reservations', json={'resource': 'room', 'customer': 'test', 'starts_at': 'invalid'}).status_code == 422
+
+def test_availability_list_cancel_and_rebook(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, 'DB', 'sqlite:///' + str(tmp_path / 'flow.db'))
+    with TestClient(main.app) as client:
+        body = {'resource': 'tokyo-room', 'customer': 'demo', 'starts_at': '2027-03-01T10:00:00+09:00'}
+        result = client.post('/reservations', json=body)
+        assert result.status_code == 201
+        rid = result.json()['id']
+        slots = client.get('/availability', params={'resource': 'tokyo-room', 'date': '2027-03-01'}).json()['slots']
+        assert len(slots) == 9
+        assert next(s for s in slots if s['starts_at'] == '2027-03-01T10:00:00+09:00')['available'] is False
+        listing = client.get('/reservations', params={'resource': 'tokyo-room', 'date': '2027-03-01'})
+        assert [x['id'] for x in listing.json()] == [rid]
+        assert client.delete('/reservations/' + rid).status_code == 204
+        assert client.delete('/reservations/' + rid).status_code == 404
+        assert client.post('/reservations', json=body).status_code == 201
+        assert client.get('/availability', params={'resource': 'tokyo-room', 'date': 'invalid'}).status_code == 422

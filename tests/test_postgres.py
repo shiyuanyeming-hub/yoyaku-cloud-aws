@@ -15,3 +15,9 @@ def test_postgres_duplicate_slot(monkeypatch):
         body['starts_at'] = '2027-02-01T01:00:00Z'
         assert client.post('/reservations', json=body).status_code == 409
         assert client.get('/reservations/' + created.json()['id']).status_code == 200
+        params = {'resource': body['resource'], 'date': '2027-02-01'}
+        assert len(client.get('/reservations', params=params).json()) == 1
+        slots = client.get('/availability', params=params).json()['slots']
+        assert next(s for s in slots if s['starts_at'].endswith('10:00:00+09:00'))['available'] is False
+        assert client.delete('/reservations/' + created.json()['id']).status_code == 204
+        assert client.post('/reservations', json=body).status_code == 201

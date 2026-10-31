@@ -10,3 +10,9 @@
 - AWS deployment: not performed; no AWS account available for testing. RDS, IAM, networking, and Fargate behavior have not been verified in AWS.
 
 The HTTP-only sample is for isolated demonstrations. It has no authentication and must not contain real customer information.
+
+## 2026-10-31 — Reservation management extension
+
+- Browser: selected an available slot, created a reservation, observed it in the list, cancelled it, and verified the slot became available again.
+- SQLite tests cover the daily availability, list, cancellation, missing reservation, and rebooking flow.
+- AWS deployment remains unverified.

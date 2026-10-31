@@ -1,9 +1,9 @@
 import os
 import sqlite3
 from contextlib import contextmanager, asynccontextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -65,6 +65,42 @@ def create_reservation(item: Reservation):
             raise HTTPException(409, 'This time slot is already reserved') from exc
         raise
     return {'id': rid, 'resource': item.resource.strip(), 'starts_at': starts_at, 'customer': item.customer.strip()}
+
+JST = timezone(timedelta(hours=9))
+
+def day_bounds(day: date):
+    start = datetime.combine(day, time.min, tzinfo=JST).astimezone(timezone.utc)
+    end = start + timedelta(days=1)
+    return start.isoformat(timespec='microseconds'), end.isoformat(timespec='microseconds')
+
+def reservations_for_day(resource: str, day: date):
+    start, end = day_bounds(day)
+    with connection() as conn:
+        rows = conn.execute(sql('SELECT id, resource, starts_at, customer FROM reservations WHERE resource = ? AND starts_at >= ? AND starts_at < ? ORDER BY starts_at'), (resource, start, end)).fetchall()
+    return [dict(zip(('id', 'resource', 'starts_at', 'customer'), row)) for row in rows]
+
+@app.get('/reservations')
+def list_reservations(resource: str = Query(min_length=1, max_length=100), date: date = Query(...)):
+    return reservations_for_day(resource.strip(), date)
+
+@app.get('/availability')
+def availability(resource: str = Query(min_length=1, max_length=100), date: date = Query(...)):
+    reserved = {row['starts_at'] for row in reservations_for_day(resource.strip(), date)}
+    slots = []
+    for hour in range(9, 18):
+        local = datetime.combine(date, time(hour), tzinfo=JST)
+        key = local.astimezone(timezone.utc).isoformat(timespec='microseconds')
+        slots.append({'starts_at': local.isoformat(), 'available': key not in reserved})
+    return {'resource': resource.strip(), 'date': date.isoformat(), 'slots': slots}
+
+@app.delete('/reservations/{reservation_id}', status_code=204)
+def cancel_reservation(reservation_id: str):
+    with connection() as conn:
+        cursor = conn.execute(sql('DELETE FROM reservations WHERE id = ?'), (reservation_id,))
+        conn.commit()
+        if cursor.rowcount == 0:
+            raise HTTPException(404, 'Reservation not found')
+    return Response(status_code=204)
 
 @app.get('/reservations/{reservation_id}')
 def get_reservation(reservation_id: str):

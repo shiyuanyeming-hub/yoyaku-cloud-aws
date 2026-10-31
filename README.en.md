@@ -2,7 +2,7 @@
 
 [日本語](README.md)
 
-A personal portfolio project using a Japanese shop reservation scenario to demonstrate AWS infrastructure and backend engineering. It creates and retrieves reservations, normalizes timestamps to UTC, and prevents duplicate slots using a database unique constraint. This is a demonstration, not a claim of professional or production experience.
+A personal portfolio project using a Japanese shop reservation scenario to demonstrate AWS infrastructure and backend engineering. It shows daily availability, creates and lists reservations, cancels them, normalizes timestamps to UTC, and prevents duplicate slots using a database unique constraint. This is a demonstration, not a claim of professional or production experience.
 
 ## Architecture
 
@@ -18,7 +18,7 @@ pytest -q
 uvicorn app.main:app --reload
 ```
 
-Visit `http://127.0.0.1:8000/` for the Japanese demo UI or `/docs` for the API documentation. Local storage uses SQLite. Submit `resource`, `customer`, and a timezone-aware `starts_at`; a conflicting slot returns HTTP 409. Equivalent timestamps in different time zones refer to the same slot.
+Visit `http://127.0.0.1:8000/` for the Japanese demo UI or `/docs` for the API documentation. Local storage uses SQLite. The UI offers hourly slots from 09:00 to 18:00 Japan time; direct API requests accept any timezone-aware timestamp. The demo has no authentication, so anyone with access can see and cancel reservations. Submit `resource`, `customer`, and a timezone-aware `starts_at`; a conflicting slot returns HTTP 409. Equivalent timestamps in different time zones refer to the same slot.
 
 ## AWS deployment
 
